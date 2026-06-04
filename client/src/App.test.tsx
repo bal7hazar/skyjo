@@ -2,20 +2,44 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
 
+/** Currently revealable/targetable slots (highlighted for the active phase). */
+function targetableSlots(): HTMLElement[] {
+  return screen
+    .getAllByRole("button")
+    .filter((b) => b.classList.contains("slot--targetable"));
+}
+
+/** Reveal the two mandatory opening slots; the client then auto-draws. */
+function completeSetup() {
+  fireEvent.click(targetableSlots()[0]);
+  fireEvent.click(targetableSlots()[0]);
+}
+
 describe("<App>", () => {
-  it("renders 12 slots, all hidden, with score 100", () => {
+  it("opens in setup: 12 hidden slots, score 100, no action buttons yet", () => {
     render(<App />);
-    const hidden = screen.getAllByText("?");
-    expect(hidden).toHaveLength(12);
+    expect(screen.getAllByText("?")).toHaveLength(12);
 
     const score = screen.getByText("Score").closest(".stat");
     expect(within(score as HTMLElement).getByText("100")).toBeInTheDocument();
+
+    expect(screen.getByText(/to start, reveal/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /place in a slot/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it("draws a number and then offers place / reveal actions", () => {
+  it("requires two opening reveals, then auto-draws into the action choice", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /draw a number/i }));
+    // All 12 hidden slots are revealable during setup.
+    expect(targetableSlots()).toHaveLength(12);
 
+    completeSetup();
+
+    // Two slots revealed → 10 hidden `?` remain.
+    expect(screen.getAllByText("?")).toHaveLength(10);
+
+    // Auto-draw advanced the turn (setup itself is free) and offered the actions.
     expect(
       screen.getByRole("button", { name: /place in a slot/i }),
     ).toBeInTheDocument();
@@ -23,24 +47,20 @@ describe("<App>", () => {
       screen.getByRole("button", { name: /discard & reveal/i }),
     ).toBeInTheDocument();
 
-    // Turns advanced to 1 after the draw.
     const turns = screen.getByText("Turns").closest(".stat");
     expect(within(turns as HTMLElement).getByText("1")).toBeInTheDocument();
   });
 
-  it("reveals a slot via Discard & reveal", () => {
+  it("reveals a slot via Discard & reveal after setup", () => {
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: /draw a number/i }));
-    fireEvent.click(screen.getByRole("button", { name: /discard & reveal/i }));
+    completeSetup();
 
-    // After choosing flip, hidden slots become clickable targets.
-    const targets = screen
-      .getAllByRole("button")
-      .filter((b) => b.classList.contains("slot--targetable"));
+    fireEvent.click(screen.getByRole("button", { name: /discard & reveal/i }));
+    const targets = targetableSlots();
     expect(targets.length).toBeGreaterThan(0);
 
     fireEvent.click(targets[0]);
-    // One slot revealed → 11 hidden `?` remain.
-    expect(screen.getAllByText("?")).toHaveLength(11);
+    // One more slot revealed → 9 hidden `?` remain.
+    expect(screen.getAllByText("?")).toHaveLength(9);
   });
 });

@@ -28,6 +28,8 @@ export const ROWS = 3;
 export const COLS = 4;
 export const CELL_COUNT = ROWS * COLS;
 export const START_SCORE = 100;
+/** Cells the player must reveal for free before the first draw (original Skyjo opening). */
+export const INITIAL_REVEALS = 2;
 
 export interface GameState {
   /** 12 cells, row-major. */
@@ -38,6 +40,11 @@ export interface GameState {
   readonly discard: readonly CardValue[];
   /** The currently drawn number awaiting an action, or null if none drawn yet. */
   readonly drawn: CardValue | null;
+  /**
+   * Free initial reveals still owed before the turn loop begins. Starts at
+   * `INITIAL_REVEALS` and counts down to 0 as the player reveals opening cells.
+   */
+  readonly pendingReveals: number;
   /** Number of turns taken (each draw costs 1 point). */
   readonly turns: number;
   /**

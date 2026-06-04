@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as engine from "./game/engine";
 import { randomSeed } from "./game/rng";
 import type { GameState } from "./game/types";
@@ -7,7 +7,13 @@ import type { GameState } from "./game/types";
 export type Interaction = "replace" | "flip" | null;
 
 /** High-level phase the UI renders from. */
-export type Phase = "predraw" | "choose" | "targeting" | "spy" | "over";
+export type Phase =
+  | "setup"
+  | "predraw"
+  | "choose"
+  | "targeting"
+  | "spy"
+  | "over";
 
 export interface Game {
   state: GameState;
@@ -16,7 +22,6 @@ export interface Game {
   score: number;
   /** True if a slot is a valid target for the current phase/action. */
   isTargetable: (index: number) => boolean;
-  drawCard: () => void;
   chooseReplace: () => void;
   chooseFlip: () => void;
   cancelAction: () => void;
@@ -36,11 +41,6 @@ export function useGame(initialSeed?: number): Game {
     setAction(null);
   }, []);
 
-  const drawCard = useCallback(() => {
-    setAction(null);
-    setState((s) => (engine.canDraw(s) ? engine.draw(s) : s));
-  }, []);
-
   const chooseReplace = useCallback(() => setAction("replace"), []);
   const chooseFlip = useCallback(() => setAction("flip"), []);
   const cancelAction = useCallback(() => setAction(null), []);
@@ -52,6 +52,8 @@ export function useGame(initialSeed?: number): Game {
   const pickCell = useCallback(
     (index: number) => {
       setState((s) => {
+        if (s.pendingReveals > 0)
+          return engine.canReveal(s, index) ? engine.reveal(s, index) : s;
         if (s.pendingSpy)
           return engine.canSpy(s, index) ? engine.spy(s, index) : s;
         if (action === "replace")
@@ -65,15 +67,27 @@ export function useGame(initialSeed?: number): Game {
     [action],
   );
 
+  // Auto-draw: drawing is the only action at the start of a turn, so do it for
+  // the player. Once a card is drawn the phase leaves "predraw", so this fires
+  // exactly once per turn (guarded by canDraw — also idempotent under Strict
+  // Mode double-invocation).
+  useEffect(() => {
+    if (engine.canDraw(state)) {
+      setState((s) => (engine.canDraw(s) ? engine.draw(s) : s));
+    }
+  }, [state]);
+
   const phase: Phase = useMemo(() => {
     if (state.over) return "over";
+    if (state.pendingReveals > 0) return "setup";
     if (state.pendingSpy) return "spy";
     if (state.drawn === null) return "predraw";
     return action ? "targeting" : "choose";
-  }, [state.over, state.pendingSpy, state.drawn, action]);
+  }, [state.over, state.pendingReveals, state.pendingSpy, state.drawn, action]);
 
   const isTargetable = useCallback(
     (index: number) => {
+      if (phase === "setup") return engine.canReveal(state, index);
       if (phase === "spy") return engine.canSpy(state, index);
       if (phase === "targeting" && action === "replace")
         return engine.canReplace(state, index);
@@ -92,7 +106,6 @@ export function useGame(initialSeed?: number): Game {
     phase,
     score,
     isTargetable,
-    drawCard,
     chooseReplace,
     chooseFlip,
     cancelAction,
