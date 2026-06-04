@@ -1,0 +1,7 @@
+packages:
+  - "client"
+
+# pnpm 11 blocks dependency build scripts by default. esbuild (pulled in by
+# Vite/Vitest) ships prebuilt binaries and needs its build step approved.
+allowBuilds:
+  esbuild: true
