@@ -16,7 +16,12 @@ import {
   spy,
   visibleSum,
 } from "./engine";
-import type { Cell, CellState, GameState } from "./types";
+import {
+  type Cell,
+  type CellState,
+  COLUMN_CLEAR_BONUS,
+  type GameState,
+} from "./types";
 
 /** Build a state from a compact grid spec for targeted scenarios. */
 function makeState(
@@ -31,6 +36,7 @@ function makeState(
     drawn: null,
     pendingReveals: 0, // default to mid-play; setup tests override this
     turns: 0,
+    cleared: 0,
     pendingSpy: false,
     over: false,
     ...over,
@@ -199,11 +205,21 @@ describe("column clear + spy", () => {
     expect(next.pendingSpy).toBe(true); // hidden cells remain
   });
 
-  it("does not clear when the three values are not equal", () => {
+  it("awards +5 to the score and counts the clear", () => {
+    const s = { ...nearClear(), drawn: 7 };
+    const before = score(s); // 100 − 0 turns − 14 (two visible 7s)
+    const next = replace(s, 8);
+    expect(next.cleared).toBe(1);
+    // The 3 sevens become `removed` (−14 from the grid) and +5 bonus is added.
+    expect(score(next)).toBe(before + 14 + COLUMN_CLEAR_BONUS);
+  });
+
+  it("does not clear (no bonus) when the three values are not equal", () => {
     const s = { ...nearClear(), drawn: 5 };
     const next = replace(s, 8);
     expect(next.grid[8].state).toBe("visible");
     expect(next.pendingSpy).toBe(false);
+    expect(next.cleared).toBe(0);
   });
 
   it("spy marks one hidden cell as spied (value known, still hidden-for-state)", () => {
@@ -268,6 +284,16 @@ describe("end condition & scoring", () => {
     const s = makeState(spec, { turns: 14, over: true });
     expect(visibleSum(s)).toBe(15);
     expect(score(s)).toBe(100 - 14 - 15); // 71
+  });
+
+  it("adds +5 per cleared column to the final score", () => {
+    const spec: Array<readonly [number, CellState]> = Array.from(
+      { length: 12 },
+      () => VIS(1) as readonly [number, CellState],
+    );
+    const s = makeState(spec, { turns: 10, cleared: 2, over: true });
+    // 100 − 10 turns − 12 grid + 2×5 clears = 88.
+    expect(score(s)).toBe(100 - 10 - 12 + 2 * COLUMN_CLEAR_BONUS);
   });
 
   it("allows negative final scores", () => {
@@ -340,8 +366,10 @@ describe("full playthrough (integration)", () => {
     ).toBe(true);
     expect(end.drawn).toBeNull();
     expect(end.pendingSpy).toBe(false);
-    // Scoring identity holds.
-    expect(score(end)).toBe(100 - end.turns - visibleSum(end));
+    // Scoring identity holds, including the +5-per-clear bonus.
+    expect(score(end)).toBe(
+      100 - end.turns - visibleSum(end) + COLUMN_CLEAR_BONUS * end.cleared,
+    );
   });
 });
 

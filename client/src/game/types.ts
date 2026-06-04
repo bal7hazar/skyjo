@@ -30,6 +30,8 @@ export const CELL_COUNT = ROWS * COLS;
 export const START_SCORE = 100;
 /** Cells the player must reveal for free before the first draw (original Skyjo opening). */
 export const INITIAL_REVEALS = 2;
+/** Points awarded each time a column is completed and cleared. */
+export const COLUMN_CLEAR_BONUS = 5;
 
 export interface GameState {
   /** 12 cells, row-major. */
@@ -47,6 +49,8 @@ export interface GameState {
   readonly pendingReveals: number;
   /** Number of turns taken (each draw costs 1 point). */
   readonly turns: number;
+  /** Number of columns cleared so far (each adds a `COLUMN_CLEAR_BONUS`). */
+  readonly cleared: number;
   /**
    * When a column was just cleared, the player may spy one hidden cell.
    * `true` while that optional spy is available; cleared by spying or skipping.
