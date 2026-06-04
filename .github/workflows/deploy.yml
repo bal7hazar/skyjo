@@ -9,6 +9,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Run the marketplace actions on the Node 24 runtime now (GitHub still defaults
+# their internal runtime to Node 20 until 2026-06-16). Silences the deprecation
+# warning and matches the Node 24 LTS we build with.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Allow this workflow to publish to Pages.
 permissions:
   contents: read
@@ -30,7 +36,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
