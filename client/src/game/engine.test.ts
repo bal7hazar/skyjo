@@ -3,12 +3,14 @@ import {
   canDraw,
   canFlip,
   canReplace,
+  canReveal,
   canSpy,
   columnCells,
   discardFlip,
   draw,
   newGame,
   replace,
+  reveal,
   score,
   skipSpy,
   spy,
@@ -27,6 +29,7 @@ function makeState(
     deck: [5],
     discard: [],
     drawn: null,
+    pendingReveals: 0, // default to mid-play; setup tests override this
     turns: 0,
     pendingSpy: false,
     over: false,
@@ -36,6 +39,18 @@ function makeState(
 
 const HIDDEN = (v: number) => [v, "hidden"] as const;
 const VIS = (v: number) => [v, "visible"] as const;
+
+/** Complete the mandatory opening reveals, returning a play-ready state. */
+function ready(seed: number): GameState {
+  let s = newGame(seed);
+  while (s.pendingReveals > 0) {
+    s = reveal(
+      s,
+      s.grid.findIndex((c) => c.state === "hidden"),
+    );
+  }
+  return s;
+}
 
 describe("newGame", () => {
   it("deals 12 hidden cells, a 138-card deck and score 100", () => {
@@ -49,9 +64,46 @@ describe("newGame", () => {
     expect(score(s)).toBe(100); // no visible cells yet
   });
 
+  it("starts in the mandatory-reveal setup, blocking the first draw", () => {
+    const s = newGame(1234);
+    expect(s.pendingReveals).toBe(2);
+    expect(canDraw(s)).toBe(false);
+    expect(() => draw(s)).toThrow();
+  });
+
   it("is deterministic for a given seed", () => {
     expect(newGame(7).grid).toEqual(newGame(7).grid);
     expect(newGame(7).grid).not.toEqual(newGame(8).grid);
+  });
+});
+
+describe("initial reveal (setup)", () => {
+  it("reveals an opening cell for free (no turn, no deck change)", () => {
+    const s = newGame(3);
+    const next = reveal(s, 0);
+    expect(next.grid[0].state).toBe("visible");
+    expect(next.pendingReveals).toBe(1);
+    expect(next.turns).toBe(0); // setup is free
+    expect(next.deck).toEqual(s.deck); // no draw happened
+  });
+
+  it("enables drawing only after both reveals", () => {
+    let s = newGame(3);
+    s = reveal(s, 0);
+    expect(canDraw(s)).toBe(false);
+    s = reveal(s, 1);
+    expect(s.pendingReveals).toBe(0);
+    expect(s.grid.filter((c) => c.state === "visible")).toHaveLength(2);
+    expect(canDraw(s)).toBe(true);
+  });
+
+  it("rejects revealing a non-hidden cell or once setup is done", () => {
+    const s = newGame(3);
+    const after = reveal(s, 0);
+    expect(canReveal(after, 0)).toBe(false); // already visible
+    const done = ready(3);
+    expect(canReveal(done, 5)).toBe(false); // pendingReveals === 0
+    expect(() => reveal(done, 5)).toThrow();
   });
 });
 
@@ -64,17 +116,21 @@ describe("columnCells", () => {
 
 describe("draw", () => {
   it("pays a turn, removes the top deck card and sets `drawn`", () => {
-    const s0 = newGame(5);
+    // Isolate draw mechanics from setup: an all-hidden, play-ready board.
+    const s0: GameState = {
+      ...makeState(Array.from({ length: 12 }, () => HIDDEN(0))),
+      deck: [3, 7],
+    };
     const top = s0.deck[s0.deck.length - 1];
     const s1 = draw(s0);
     expect(s1.turns).toBe(1);
     expect(s1.drawn).toBe(top);
-    expect(s1.deck).toHaveLength(137);
-    expect(score(s1)).toBe(99); // 100 − 1 turn
+    expect(s1.deck).toHaveLength(1);
+    expect(score(s1)).toBe(99); // 100 − 1 turn, no visible cells
   });
 
   it("cannot draw twice without acting", () => {
-    const s1 = draw(newGame(5));
+    const s1 = draw(ready(5));
     expect(canDraw(s1)).toBe(false);
     expect(() => draw(s1)).toThrow();
   });
@@ -247,6 +303,12 @@ describe("full playthrough (integration)", () => {
     let guard = 0;
     while (!s.over) {
       if (++guard > 500) throw new Error("game did not terminate");
+
+      if (s.pendingReveals > 0) {
+        const hidden = s.grid.findIndex((c) => c.state === "hidden");
+        s = reveal(s, hidden);
+        continue;
+      }
 
       if (s.pendingSpy) {
         const hidden = s.grid.findIndex((c) => c.state === "hidden");

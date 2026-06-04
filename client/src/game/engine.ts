@@ -9,6 +9,7 @@ import {
   type Cell,
   COLS,
   type GameState,
+  INITIAL_REVEALS,
   ROWS,
   START_SCORE,
 } from "./types";
@@ -37,6 +38,7 @@ export function newGame(seed: number = randomSeed()): GameState {
     deck,
     discard: [],
     drawn: null,
+    pendingReveals: INITIAL_REVEALS,
     turns: 0,
     pendingSpy: false,
     over: false,
@@ -46,7 +48,23 @@ export function newGame(seed: number = randomSeed()): GameState {
 // --- Guards ---------------------------------------------------------------
 
 export function canDraw(s: GameState): boolean {
-  return !s.over && !s.pendingSpy && s.drawn === null && s.deck.length > 0;
+  return (
+    !s.over &&
+    s.pendingReveals === 0 &&
+    !s.pendingSpy &&
+    s.drawn === null &&
+    s.deck.length > 0
+  );
+}
+
+/** During setup, the player reveals one of the owed opening cells. */
+export function canReveal(s: GameState, index: number): boolean {
+  return (
+    !s.over &&
+    s.pendingReveals > 0 &&
+    isIndex(index) &&
+    s.grid[index].state === "hidden"
+  );
 }
 
 export function canReplace(s: GameState, index: number): boolean {
@@ -83,6 +101,17 @@ function isHiddenLike(cell: Cell): boolean {
 }
 
 // --- Actions --------------------------------------------------------------
+
+/**
+ * Free initial reveal (setup): turn one owed opening cell `visible`. No turn
+ * cost. A column cannot complete during setup, so no clear/spy is checked.
+ */
+export function reveal(s: GameState, index: number): GameState {
+  if (!canReveal(s, index)) throw new Error("reveal: not allowed");
+  const cell = s.grid[index];
+  const grid = withCell(s.grid, index, { value: cell.value, state: "visible" });
+  return { ...s, grid, pendingReveals: s.pendingReveals - 1 };
+}
 
 /** Pay the turn cost and draw the next number from the deck. */
 export function draw(s: GameState): GameState {

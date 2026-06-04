@@ -6,7 +6,10 @@ export function Controls({ game }: { game: Game }) {
 
   return (
     <div className="controls">
-      <Incoming value={state.drawn} dimmed={phase === "predraw"} />
+      <Incoming
+        value={state.drawn}
+        dimmed={phase === "predraw" || phase === "setup"}
+      />
       <div className="controls__panel">{renderPanel(game, phase, action)}</div>
     </div>
   );
@@ -30,19 +33,16 @@ function Incoming({
 
 function renderPanel(game: Game, phase: Game["phase"], action: Game["action"]) {
   switch (phase) {
-    case "predraw":
+    case "setup":
       return (
-        <>
-          <p className="hint">Draw the next number, then place or reveal.</p>
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={game.drawCard}
-          >
-            Draw a number
-          </button>
-        </>
+        <p className="hint">
+          To start, reveal <strong>{game.state.pendingReveals}</strong> more
+          slot{game.state.pendingReveals > 1 ? "s" : ""} — tap any blank slot to
+          fill in its number.
+        </p>
       );
+    case "predraw":
+      return <p className="hint">Drawing the next number…</p>;
     case "choose":
       return (
         <>
