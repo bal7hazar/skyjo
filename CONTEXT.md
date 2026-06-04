@@ -66,14 +66,14 @@ After dealing, and **before any number is drawn**, the player must **reveal 2 hi
 3. The player performs **exactly one** of these two actions:
    - **(A) Replace** **any** grid cell (hidden or visible) with the drawn card. The replaced card goes to the discard; the drawn card is placed **visible** in that cell. (Replacing a hidden cell discards the unknown card and reveals the new one.)
    - **(B) Discard + Flip:** discard the drawn card and turn one **hidden** cell **visible** (reveal it).
-4. **Column clear (triggered, automatic) + Spy bonus (optional):** when a column's 3 cells are all **visible and equal in value** (original Skyjo trigger), that column is **automatically removed**: its 3 cells become `removed` and count **0** in the final score. Removal also grants the player an optional **spy** of one remaining hidden cell — they learn its value, but the cell stays `spied` (still hidden for state and end condition; only the player knows it). If no hidden cell remains, the spy is simply unavailable.
+4. **Column clear (triggered, automatic) + clear bonus + Spy bonus (optional):** when a column's 3 cells are all **visible and equal in value** (original Skyjo trigger), that column is **automatically removed**: its 3 cells become `removed` and count **0** in the final score, and the player immediately scores **+5 points** (the clear bonus). Removal also grants the player an optional **spy** of one remaining hidden cell — they learn its value, but the cell stays `spied` (still hidden for state and end condition; only the player knows it). If no hidden cell remains, the spy is simply unavailable.
 
 > **Auto-draw (UX rule):** drawing is never a deliberate choice — at the start of a turn it is the *only* possible action, so the client performs the draw **automatically**. There is no manual "draw" button: the player only ever chooses between **Replace** and **Discard + Flip** (and resolves the optional spy). More generally, whenever drawing is the single available action, it happens on its own.
 
 ### End & scoring
 - The game ends when **every remaining cell is visible** — i.e. all cells are `visible` or `removed`. (`spied` cells do **not** count as visible — they must still be flipped/replaced to end the game.)
-- Final score = **100 − (number of turns taken) − (sum of remaining `visible` grid values)**. `removed` cells contribute 0.
-- The grid total can be reduced two ways: replacing high cards with lower drawn cards, and clearing high-value columns to 0. The turn cost rewards finishing efficiently. The core tension is **fewer turns vs. lower grid total**.
+- Final score = **100 − (number of turns taken) − (sum of remaining `visible` grid values) + 5 × (number of columns cleared)**. `removed` cells contribute 0; each cleared column adds its **+5** bonus.
+- The grid total can be reduced two ways: replacing high cards with lower drawn cards, and clearing high-value columns to 0 (which also pays **+5**). The turn cost rewards finishing efficiently. The core tension is **fewer turns vs. lower grid total**, with column clears now actively rewarded.
 - Note: column removal is automatic even for equal **low/negative** triples (e.g. three `-2`s), which can *raise* your total — a faithful original-Skyjo edge case.
 
 ## 5. Rules decisions & remaining open questions
@@ -83,7 +83,7 @@ After dealing, and **before any number is drawn**, the player must **reveal 2 hi
 - **Auto-draw.** Drawing is automatic whenever it is the only available action (start of every turn). No manual draw button; the player chooses only Replace vs Discard + Flip (see §4 → "Auto-draw").
 - **Replace targets any cell.** Replace (A) may target **any** grid cell, hidden or visible (original Skyjo behavior). Replacing a hidden cell discards the unknown card and reveals the new one. (After the initial reveal, the first turn with mostly-hidden cells is fine: you may Replace or Flip.)
 - **Column trigger = 3 equal values.** A column is "completed" when its 3 cells are visible and hold **equal values** (original Skyjo trigger), not merely all-visible.
-- **Completed columns are removed and score 0** (original Skyjo rule is kept) **and** additionally grant the optional spy. Removal is automatic; the spy is the bonus.
+- **Completed columns are removed and score 0** (original Skyjo rule is kept), **score +5 points** (clear bonus), **and** additionally grant the optional spy. Removal is automatic; the +5 and the spy are the rewards.
 
 ### Still open (minor — sensible defaults assumed)
 1. **Spy count / re-spy:** assumed **one spy per column clear**, and a given hidden cell can be `spied` at most once. Confirm.

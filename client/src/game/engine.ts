@@ -8,6 +8,7 @@ import {
   CELL_COUNT,
   type Cell,
   COLS,
+  COLUMN_CLEAR_BONUS,
   type GameState,
   INITIAL_REVEALS,
   ROWS,
@@ -40,6 +41,7 @@ export function newGame(seed: number = randomSeed()): GameState {
     drawn: null,
     pendingReveals: INITIAL_REVEALS,
     turns: 0,
+    cleared: 0,
     pendingSpy: false,
     over: false,
   };
@@ -165,8 +167,8 @@ export function skipSpy(s: GameState): GameState {
 
 /**
  * After an action touched `index`, clear its column if the 3 cells are all
- * visible and equal, grant an optional spy if a hidden cell remains, then
- * recompute the end condition.
+ * visible and equal, award the +5 clear bonus, grant an optional spy if a
+ * hidden cell remains, then recompute the end condition.
  */
 function resolve(s: GameState, index: number): GameState {
   const col = index % COLS;
@@ -178,18 +180,20 @@ function resolve(s: GameState, index: number): GameState {
 
   let grid: readonly Cell[] = s.grid;
   let pendingSpy = false;
+  let cleared = s.cleared;
   if (allVisible && equal) {
     const next = s.grid.slice();
     for (const i of [a, b, c])
       next[i] = { value: next[i].value, state: "removed" };
     grid = next;
+    cleared = s.cleared + 1; // earns the COLUMN_CLEAR_BONUS via score()
     pendingSpy = next.some((cell) => cell.state === "hidden");
   }
 
   const over = grid.every(
     (cell) => cell.state === "visible" || cell.state === "removed",
   );
-  return { ...s, grid, pendingSpy, over };
+  return { ...s, grid, cleared, pendingSpy, over };
 }
 
 // --- Selectors ------------------------------------------------------------
@@ -203,12 +207,12 @@ export function visibleSum(s: GameState): number {
 }
 
 /**
- * Current/running score = 100 − turns − (sum of visible grid values).
- * `removed` cells count 0; `spied`/`hidden` are not yet counted. At game end
- * this is the final score (CONTEXT.md §4).
+ * Current/running score = 100 − turns − (sum of visible grid values)
+ * + 5 × (columns cleared). `removed` cells count 0; `spied`/`hidden` are not yet
+ * counted. At game end this is the final score (CONTEXT.md §4).
  */
 export function score(s: GameState): number {
-  return START_SCORE - s.turns - visibleSum(s);
+  return START_SCORE - s.turns - visibleSum(s) + COLUMN_CLEAR_BONUS * s.cleared;
 }
 
 export { CELL_COUNT, COLS, ROWS };
